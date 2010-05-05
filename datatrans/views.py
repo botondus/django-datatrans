@@ -25,7 +25,7 @@ def _get_model_entry(slug):
 def _get_model_stats(model, filter=lambda x: x):
     default_lang = utils.get_default_language()
     registry = utils.get_registry()
-    keyvalues = filter(KeyValue.objects.for_model(model, registry[model].values()).exclude(language=default_lang))
+    keyvalues = filter(KeyValue.objects.for_model(model, registry[model]["fields"].values()).exclude(language=default_lang))
     total = keyvalues.count()
     done = keyvalues.filter(edited=True, fuzzy=False).count()
     return (done * 100 / total if total > 0 else 0, done, total)
@@ -49,7 +49,7 @@ def model_list(request):
 
     models = [{'slug': _get_model_slug(model),
                'model_name': u'%s' % model._meta.verbose_name,
-               'field_names': [u'%s' % f.verbose_name for f in registry[model].values()],
+               'field_names': [u'%s' % f.verbose_name for f in registry[model]["fields"].values()],
                'stats': _get_model_stats(model),
                'languages': [(l[0], l[1], _get_model_stats(model, filter=lambda x: x.filter(language=l[0]))) for l in languages],
                } for model in registry]
@@ -92,7 +92,8 @@ def model_detail(request, slug, language):
 
     model = _get_model_entry(slug)
     registry = utils.get_registry()
-    fields = registry[model]
+    fields = registry[model]["fields"]
+    html_fields = registry[model]["html_fields"]
 
     default_lang = utils.get_default_language()
     model_name = u'%s' % model._meta.verbose_name
@@ -109,15 +110,16 @@ def model_detail(request, slug, language):
             if first_unedited_translation is None and (not translation.edited or translation.fuzzy):
                 first_unedited_translation = translation
             items.append({'original': original, 'translation': translation})
-        field_list.append({'name': field.name, 'verbose_name': unicode(field.verbose_name), 'items': items})
-
+        field_list.append({'name': field.name, 'verbose_name': unicode(field.verbose_name), 'items': items,
+                           'is_html': field.name in html_fields})
 
     context = {'model': model_name,
                'fields': field_list,
                'original_language': default_lang,
                'other_language': language,
                'progress': _get_model_stats(model, lambda x: x.filter(language=language)),
-               'first_unedited': first_unedited_translation}
+               'first_unedited': first_unedited_translation,
+               'has_html_field': len(html_fields) > 0}
 
 
     return render_to_response('datatrans/model_detail.html', context, context_instance=RequestContext(request))
