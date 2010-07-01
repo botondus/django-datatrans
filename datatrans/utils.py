@@ -1,7 +1,7 @@
 from django.conf import settings
 from datatrans.models import KeyValue, make_digest
 from django.utils import translation
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist
 from django.db import models
 
 '''
@@ -83,9 +83,15 @@ def _pre_save(sender, instance, **kwargs):
 
     # When we edit a registered model, update the original translations and mark them as unedited (to do)
     if instance.pk is not None:
+        try:
+            # Just because instance.pk is set, it does not mean that the instance
+            # is saved. Most typical/important ex: loading fixtures
+            original = sender.objects.get(pk=instance.pk)
+        except ObjectDoesNotExist:
+            return None
+        
         register = get_registry()
         fields = register[sender]['fields'].values()
-        original = sender.objects.get(pk=instance.pk)
         for field in fields:
             old_digest = make_digest(original.__dict__[field.name])
             new_digest = make_digest(instance.__dict__[field.name])
