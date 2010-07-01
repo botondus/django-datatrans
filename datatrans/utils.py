@@ -84,7 +84,7 @@ def _pre_save(sender, instance, **kwargs):
     # When we edit a registered model, update the original translations and mark them as unedited (to do)
     if instance.pk is not None:
         register = get_registry()
-        fields = register[sender].values()
+        fields = register[sender]['fields'].values()
         original = sender.objects.get(pk=instance.pk)
         for field in fields:
             old_digest = make_digest(original.__dict__[field.name])
