@@ -1,26 +1,34 @@
-"""
-This file demonstrates two different styles of tests (one doctest and one
-unittest). These will both pass when you run "manage.py test".
-
-Replace these with more appropriate tests for your application.
-"""
-from django.test import TestCase, TransactionTestCase
-from django.core.management import call_command
+from django.test import TestCase
+from django.conf import settings
+try:
+    from django.db import DEFAULT_DB_ALIAS
+except ImportError:
+    pass
 
 from datatrans.models import KeyValue
+from datatrans.utils import get_default_language
 
 from test_project.testapp.models import Option
+from test_project.testapp.utils import test_concurrently
 
 
+if hasattr(settings, 'DATABASES'):
+    DATABASE_ENGINE = settings.DATABASES[DEFAULT_DB_ALIAS]['ENGINE']
+else:
+    DATABASE_ENGINE = settings.DATABASE_ENGINE
+USING_POSTGRESQL = DATABASE_ENGINE.startswith('postgresql') or \
+    DATABASE_ENGINE.startswith('django.db.backends.postgresql')
 
-class ObjectCreateTest(TestCase):
-    '''
-    This is mostly just added at this point to have 1 test
-    that does "something".
-    '''
-    def test_multiple_obj_in_one_transaction(self):
-        o1 = Option.objects.create(name="a new option")
-        o1.save()
-        o2 = Option.objects.create(name="another new option")
-        o2.save()
-        kv = KeyValue.objects.get(value="a new option")
+class PostgresRegressionTest(TestCase):
+    if USING_POSTGRESQL:
+        def test_concurrent_inserts_with_same_value_break_pre_save(self):
+            @test_concurrently(2)
+            def add_new_records():
+                value = "test string that does not already exist in db"
+                option = Option(name=value)
+                option.save()
+                count_kv = KeyValue.objects.filter(language=get_default_language(),
+                                                   value=value).count()
+                self.assertEqual(count_kv, 1, 
+                                 u"Got %d KeyValues after concurrent insert instead of 1." % count_kv)
+            add_new_records()
