@@ -91,7 +91,7 @@ def _pre_save(sender, instance, **kwargs):
             return None
         
         register = get_registry()
-        fields = register[sender]['fields'].values()
+        fields = register[sender].values()
         for field in fields:
             old_digest = make_digest(original.__dict__[field.name])
             new_digest = make_digest(instance.__dict__[field.name])
