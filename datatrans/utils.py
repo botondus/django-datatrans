@@ -125,9 +125,8 @@ def register(model, modeltranslation):
     if not model in REGISTRY:
         # create a fields dict (models apparently lack this?!)
         fields = dict([(f.name, f) for f in model._meta._fields() if f.name in modeltranslation.fields])
-        html_fields = getattr(modeltranslation, "html_fields", ())
 
-        REGISTRY[model] = {"fields": fields, "html_fields": html_fields} 
+        REGISTRY[model] = fields
         models.signals.pre_save.connect(_pre_save, sender=model)
         models.signals.post_save.connect(_post_save, sender=model)
 
